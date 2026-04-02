@@ -4,6 +4,7 @@
 #include "Wire.h"
 
 MPU6050 mpu;
+#define OUTPUT_TEAPOT
 
 #define INTERRUPT_PIN 2
 #define LED_PIN 2
@@ -35,62 +36,41 @@ void IRAM_ATTR dmpDataReady()
 {
   mpuInterrupt = true;
 }
+void setup() {
+    Wire.begin(21, 22);
+    Wire.setClock(400000);
+    Serial.begin(115200);
+    delay(2000);   // 부팅 안정화 대기
 
-void setup()
-{
-  Wire.begin(21, 22); // SDA=21, SCL=22
-  Wire.setClock(400000);
+    mpu.initialize();
 
-  Serial.begin(115200);
-  while (!Serial)
-    ;
+    if (!mpu.testConnection()) {
+        Serial.println("MPU6050 연결 실패!");
+        while (1);
+    }
+    Serial.println("MPU6050 연결 성공");
 
-  // MPU6050 초기화
-  mpu.initialize();
-  pinMode(INTERRUPT_PIN, INPUT);
+    // ↓ 이 부분 전체 삭제!
+    // Serial.println("아무 키나 입력하세요...");
+    // while (!Serial.available());
+    // while (Serial.available() && Serial.read());
 
-  if (!mpu.testConnection())
-  {
-    Serial.println("MPU6050 연결 실패!");
-    while (1)
-      ;
-  }
-  Serial.println("MPU6050 연결 성공");
+    devStatus = mpu.dmpInitialize();
 
-  // DMP 초기화 대기
-  Serial.println("아무 키나 입력하세요...");
-  while (!Serial.available())
-    ;
-  while (Serial.available() && Serial.read())
-    ;
+    mpu.setXGyroOffset(220);
+    mpu.setYGyroOffset(76);
+    mpu.setZGyroOffset(-85);
+    mpu.setZAccelOffset(1788);
 
-  // DMP 초기화
-  devStatus = mpu.dmpInitialize();
-
-  // 캘리브레이션 오프셋 (본인 센서에 맞게 수정)
-  mpu.setXGyroOffset(220);
-  mpu.setYGyroOffset(76);
-  mpu.setZGyroOffset(-85);
-  mpu.setZAccelOffset(1788);
-
-  if (devStatus == 0)
-  {
-    mpu.setDMPEnabled(true);
-    attachInterrupt(
-        digitalPinToInterrupt(INTERRUPT_PIN),
-        dmpDataReady, RISING);
-    mpuIntStatus = mpu.getIntStatus();
-    dmpReady = true;
-    packetSize = mpu.dmpGetFIFOPacketSize();
-    Serial.println("DMP 준비 완료!");
-  }
-  else
-  {
-    Serial.print("DMP 초기화 실패: ");
-    Serial.println(devStatus);
-  }
-
-  pinMode(LED_PIN, OUTPUT);
+    if (devStatus == 0) {
+        mpu.setDMPEnabled(true);
+        attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN),
+                       dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+        dmpReady = true;
+        packetSize = mpu.dmpGetFIFOPacketSize();
+        Serial.println("DMP 준비 완료!");
+    }
 }
 
 void loop()
